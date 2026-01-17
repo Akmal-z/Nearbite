@@ -1,57 +1,61 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
+import time
 
-# --- PAGE CONFIG ---
+# --- PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="NearBite - Healthy Local Fusion",
+    page_title="NearBite",
     page_icon="🥗",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# --- CUSTOM CSS FOR MOBILE UI ---
+# --- MOBILE-FRIENDLY CSS ---
 st.markdown("""
     <style>
-    /* Main container styling */
-    .main {
-        background-color: #f8f9fa;
-    }
-    /* Style buttons to look more like app buttons */
-    div.stButton > button:first-child {
-        background-color: #22c55e;
-        color: white;
-        border-radius: 12px;
-        border: none;
-        height: 3em;
-        width: 100%;
-        font-weight: bold;
-        transition: all 0.3s;
-    }
-    div.stButton > button:hover {
-        background-color: #16a34a;
-        color: white;
-        transform: scale(0.98);
+    /* Remove default padding for mobile feel */
+    .block-container {
+        padding-top: 1rem;
+        padding-bottom: 5rem;
     }
     /* Card styling */
-    .res-card {
+    .food-card {
         background-color: white;
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        margin-bottom: 20px;
+        padding: 15px;
+        border-radius: 12px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        margin-bottom: 10px;
+        border: 1px solid #f0f0f0;
     }
-    .price-tag {
-        color: #1f2937;
-        font-weight: 800;
-        font-size: 1.1em;
+    /* Bottom Navigation Bar */
+    .bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background-color: white;
+        padding: 10px 0;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        z-index: 999;
+        text-align: center;
     }
-    .health-badge {
-        background-color: #f0fdf4;
-        color: #166534;
-        padding: 2px 8px;
-        border-radius: 6px;
-        font-size: 0.8em;
-        font-weight: bold;
+    /* Button Styling */
+    div.stButton > button {
+        width: 100%;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+    .primary-btn button {
+        background-color: #22c55e !important;
+        color: white !important;
+        border: none;
+    }
+    .nav-btn {
+        background: none;
+        border: none;
+        color: #555;
+        font-size: 0.8rem;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -60,124 +64,242 @@ st.markdown("""
 RESTAURANTS = [
     {
         "id": "r1",
-        "name": "Dapur Sihat Machang",
-        "cuisine": "Fusion",
-        "description": "Traditional flavors with a nutritious modern twist.",
-        "rating": 4.8,
+        "name": "Dapur Sihat",
+        "category": "Fusion",
         "menu": [
-            {"id": "m1", "name": "Nasi Kerabu Quinoa", "price": 15.50, "cals": "310 kcal", "healthy": True},
-            {"id": "m2", "name": "Zoodle Laksa", "price": 12.00, "cals": "240 kcal", "healthy": True},
-            {"id": "m3", "name": "Tempeh Wrap", "price": 10.00, "cals": "350 kcal", "healthy": True}
+            {"id": "m1", "name": "Nasi Kerabu Quinoa", "price": 15.50, "cals": 310},
+            {"id": "m2", "name": "Zoodle Laksa", "price": 12.00, "cals": 240},
         ]
     },
     {
         "id": "r2",
-        "name": "Kelantan Fusion Kitchen",
-        "cuisine": "Local",
-        "description": "Authentic rural ingredients meet healthy prep methods.",
-        "rating": 4.5,
+        "name": "Kelantan Fusion",
+        "category": "Local",
         "menu": [
-            {"id": "m4", "name": "Avocado Budu Salad", "price": 14.00, "cals": "220 kcal", "healthy": True},
-            {"id": "m5", "name": "Grilled Fish Pesto", "price": 18.00, "cals": "400 kcal", "healthy": True}
+            {"id": "m3", "name": "Avocado Budu Salad", "price": 14.00, "cals": 220},
+            {"id": "m4", "name": "Grilled Fish Pesto", "price": 18.00, "cals": 400},
         ]
     }
 ]
 
-# --- SESSION STATE INITIALIZATION ---
+# --- SESSION STATE SETUP ---
+if 'user' not in st.session_state:
+    st.session_state.user = None  # None means not logged in
 if 'cart' not in st.session_state:
     st.session_state.cart = []
+if 'orders' not in st.session_state:
+    st.session_state.orders = []  # List of confirmed orders
 if 'page' not in st.session_state:
-    st.session_state.page = "Home"
-if 'selected_res' not in st.session_state:
-    st.session_state.selected_res = None
+    st.session_state.page = "Login"
 
-# --- HELPER FUNCTIONS ---
-def add_to_cart(item):
-    st.session_state.cart.append(item)
-    st.toast(f"Added {item['name']} to cart!")
+# --- FUNCTIONS ---
+def login(username):
+    st.session_state.user = username
+    st.session_state.page = "Menu"
 
-def navigate_to(page, res=None):
-    st.session_state.page = page
-    st.session_state.selected_res = res
+def logout():
+    st.session_state.user = None
+    st.session_state.cart = []
+    st.session_state.page = "Login"
 
-# --- UI COMPONENTS ---
+def add_to_cart(item, restaurant_name):
+    # Add item with metadata
+    cart_item = item.copy()
+    cart_item['restaurant'] = restaurant_name
+    cart_item['added_at'] = datetime.now()
+    st.session_state.cart.append(cart_item)
+    st.toast(f"Added {item['name']}")
 
-# Top Bar / Navigation
-cols = st.columns([4, 1])
-with cols[0]:
-    if st.session_state.page != "Home":
-        if st.button("← Back", key="back_btn"):
-            navigate_to("Home")
-    else:
-        st.title("NearBite")
-with cols[1]:
-    cart_count = len(st.session_state.cart)
-    if st.button(f"🛒({cart_count})", key="cart_nav"):
-        navigate_to("Cart")
+def get_cart_total():
+    return sum(item['price'] for item in st.session_state.cart)
 
-# --- PAGE: HOME ---
-if st.session_state.page == "Home":
-    st.markdown("### 📍 Machang, Kelantan")
-    st.info("Discover healthy local fusion nearby.")
+def confirm_order():
+    if not st.session_state.cart:
+        return
     
-    search = st.text_input("Search for cuisine...", placeholder="e.g. Nasi Kerabu")
+    new_order = {
+        "id": f"ORD-{int(time.time())}",
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "items": st.session_state.cart.copy(),
+        "total": get_cart_total(),
+        "status": "Preparing"
+    }
+    st.session_state.orders.insert(0, new_order) # Add to top of list
+    st.session_state.cart = [] # Clear cart
+    st.session_state.page = "OrderSuccess"
+
+# --- PAGES ---
+
+def render_login():
+    st.markdown("<h1 style='text-align: center;'>NearBite 🥗</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: gray;'>Healthy Local Fusion</p>", unsafe_allow_html=True)
+    
+    with st.container():
+        st.write("")
+        st.write("")
+        username = st.text_input("Username", placeholder="Enter your name")
+        password = st.text_input("Password", type="password", placeholder="Enter password")
+        
+        st.write("")
+        if st.button("Log In", type="primary"):
+            if username and password:
+                login(username)
+                st.rerun()
+            else:
+                st.error("Please enter credentials")
+
+def render_menu():
+    st.subheader(f"Hello, {st.session_state.user} 👋")
+    st.caption("What are you craving today?")
+    
+    # Filter
+    category = st.selectbox("Filter Cuisine", ["All", "Fusion", "Local"])
     
     for res in RESTAURANTS:
-        if search.lower() in res['name'].lower() or search.lower() in res['cuisine'].lower():
-            with st.container():
-                st.markdown(f"""
-                <div class="res-card">
-                    <span class="health-badge">{res['cuisine']}</span>
-                    <h2 style='margin-top:10px;'>{res['name']}</h2>
-                    <p style='color:gray;'>{res['description']}</p>
-                    <p>⭐ {res['rating']} | 🥗 Healthy Certified</p>
-                </div>
-                """, unsafe_allow_html=True)
-                if st.button(f"View Menu", key=f"view_{res['id']}"):
-                    navigate_to("Details", res)
+        if category == "All" or res['category'] == category:
+            st.markdown(f"### {res['name']}")
+            for item in res['menu']:
+                with st.container():
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.markdown(f"**{item['name']}**")
+                        st.caption(f"RM {item['price']:.2f} • {item['cals']} kcal")
+                    with col2:
+                        if st.button("Add", key=f"add_{item['id']}"):
+                            add_to_cart(item, res['name'])
+            st.divider()
 
-# --- PAGE: DETAILS ---
-elif st.session_state.page == "Details":
-    res = st.session_state.selected_res
-    st.header(res['name'])
-    st.write(res['description'])
-    st.divider()
-    
-    st.subheader("Menu Items")
-    for item in res['menu']:
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            st.markdown(f"**{item['name']}**")
-            st.caption(f"{item['cals']} | RM {item['price']:.2f}")
-        with col2:
-            if st.button("Add", key=f"add_{item['id']}"):
-                add_to_cart(item)
-
-# --- PAGE: CART ---
-elif st.session_state.page == "Cart":
-    st.header("Your Basket")
+def render_cart():
+    st.subheader("Your Basket 🛒")
     
     if not st.session_state.cart:
-        st.warning("Your basket is empty!")
-        if st.button("Browse Food"):
-            navigate_to("Home")
-    else:
-        total = 0
-        for i, item in enumerate(st.session_state.cart):
+        st.info("Your cart is empty.")
+        if st.button("Browse Menu"):
+            st.session_state.page = "Menu"
+            st.rerun()
+        return
+
+    # Group items by restaurant or just list them? 
+    # Listing them simply for mobile clarity
+    for i, item in enumerate(st.session_state.cart):
+        with st.container():
             col1, col2 = st.columns([4, 1])
             with col1:
-                st.write(f"{item['name']}")
-                st.caption(f"RM {item['price']:.2f}")
+                st.write(f"**{item['name']}**")
+                st.caption(f"{item['restaurant']} • RM {item['price']:.2f}")
             with col2:
-                if st.button("❌", key=f"del_{i}"):
+                if st.button("✖", key=f"remove_{i}"):
                     st.session_state.cart.pop(i)
                     st.rerun()
-            total += item['price']
+        st.markdown("---")
+
+    total = get_cart_total()
+    st.markdown(f"### Total: RM {total:.2f}")
+    
+    st.write("")
+    if st.button("Proceed to Checkout", type="primary"):
+        st.session_state.page = "Confirmation"
+        st.rerun()
+
+def render_confirmation():
+    st.subheader("Confirm Order")
+    st.write("Please review your order details.")
+    
+    # Order Summary
+    df = pd.DataFrame(st.session_state.cart)
+    # Simple count of items
+    item_counts = df['name'].value_counts()
+    
+    with st.container():
+        st.markdown("#### Order Summary")
+        for name, count in item_counts.items():
+            price = df[df['name'] == name].iloc[0]['price']
+            st.write(f"{count}x {name} (RM {price * count:.2f})")
         
         st.divider()
-        st.markdown(f"### Total: RM {total:.2f}")
+        st.markdown(f"**Grand Total: RM {get_cart_total():.2f}**")
+    
+    st.warning("⚠️ Payment will be collected upon delivery.")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Cancel"):
+            st.session_state.page = "Cart"
+            st.rerun()
+    with col2:
+        if st.button("Confirm Order", type="primary"):
+            confirm_order()
+            st.rerun()
+
+def render_success():
+    st.balloons()
+    st.success("Order Placed Successfully!")
+    st.markdown("""
+        <div style="text-align: center; padding: 20px;">
+            <h1>🎉</h1>
+            <h3>Your food is being prepared!</h3>
+            <p>You can track it in the 'Orders' tab.</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("Back to Home"):
+        st.session_state.page = "Menu"
+        st.rerun()
+
+def render_orders():
+    st.subheader("My Orders 📦")
+    
+    if not st.session_state.orders:
+        st.info("No active orders.")
+        return
         
-        if st.button("Place Order"):
-            st.success("Order placed successfully! 🚀")
-            st.session_state.cart = []
-            st.balloons()
+    st.caption(f"Total Orders: {len(st.session_state.orders)}")
+    
+    for order in st.session_state.orders:
+        with st.expander(f"{order['date']} - RM {order['total']:.2f} ({order['status']})"):
+            st.write(f"**Order ID:** {order['id']}")
+            for item in order['items']:
+                st.write(f"- {item['name']}")
+            st.caption("Cash on Delivery")
+
+# --- MAIN APP CONTROLLER ---
+
+if st.session_state.page == "Login":
+    render_login()
+
+else:
+    # --- NAVIGATION BAR (Mobile Style) ---
+    # We use columns to simulate a bottom nav bar
+    st.markdown("---")
+    nav_col1, nav_col2, nav_col3, nav_col4 = st.columns(4)
+    
+    with nav_col1:
+        if st.button("🏠\nMenu"):
+            st.session_state.page = "Menu"
+            st.rerun()
+    with nav_col2:
+        cart_count = len(st.session_state.cart)
+        label = f"🛒\nCart ({cart_count})"
+        if st.button(label):
+            st.session_state.page = "Cart"
+            st.rerun()
+    with nav_col3:
+        if st.button("📦\nOrders"):
+            st.session_state.page = "Orders"
+            st.rerun()
+    with nav_col4:
+        if st.button("🚪\nLogout"):
+            logout()
+            st.rerun()
+
+    # --- RENDER CURRENT PAGE CONTENT ---
+    if st.session_state.page == "Menu":
+        render_menu()
+    elif st.session_state.page == "Cart":
+        render_cart()
+    elif st.session_state.page == "Confirmation":
+        render_confirmation()
+    elif st.session_state.page == "OrderSuccess":
+        render_success()
+    elif st.session_state.page == "Orders":
+        render_orders()
