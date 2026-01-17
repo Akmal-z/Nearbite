@@ -57,6 +57,10 @@ st.markdown("""
         color: #555;
         font-size: 0.8rem;
     }
+    /* Number Input Styling */
+    div[data-testid="stNumberInput"] input {
+        text-align: center;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -102,16 +106,27 @@ def logout():
     st.session_state.cart = []
     st.session_state.page = "Login"
 
-def add_to_cart(item, restaurant_name):
-    # Add item with metadata
-    cart_item = item.copy()
-    cart_item['restaurant'] = restaurant_name
-    cart_item['added_at'] = datetime.now()
-    st.session_state.cart.append(cart_item)
-    st.toast(f"Added {item['name']}")
+def add_to_cart(item, restaurant_name, quantity):
+    # Check if item exists in cart to update quantity
+    found = False
+    for cart_item in st.session_state.cart:
+        if cart_item['id'] == item['id']:
+            cart_item['quantity'] += quantity
+            found = True
+            break
+            
+    if not found:
+        # Add new item with metadata
+        cart_item = item.copy()
+        cart_item['restaurant'] = restaurant_name
+        cart_item['added_at'] = datetime.now()
+        cart_item['quantity'] = quantity
+        st.session_state.cart.append(cart_item)
+    
+    st.toast(f"Added {quantity} x {item['name']}")
 
 def get_cart_total():
-    return sum(item['price'] for item in st.session_state.cart)
+    return sum(item['price'] * item['quantity'] for item in st.session_state.cart)
 
 def confirm_order():
     if not st.session_state.cart:
@@ -160,13 +175,16 @@ def render_menu():
             st.markdown(f"### {res['name']}")
             for item in res['menu']:
                 with st.container():
-                    col1, col2 = st.columns([3, 1])
+                    # Layout: 2 parts description, 1 part quantity input, 1 part add button
+                    col1, col2, col3 = st.columns([3, 1.2, 1.2])
                     with col1:
                         st.markdown(f"**{item['name']}**")
                         st.caption(f"RM {item['price']:.2f} • {item['cals']} kcal")
                     with col2:
+                        qty = st.number_input("Qty", min_value=1, value=1, label_visibility="collapsed", key=f"qty_{item['id']}")
+                    with col3:
                         if st.button("Add", key=f"add_{item['id']}"):
-                            add_to_cart(item, res['name'])
+                            add_to_cart(item, res['name'], qty)
             st.divider()
 
 def render_cart():
@@ -179,14 +197,14 @@ def render_cart():
             st.rerun()
         return
 
-    # Group items by restaurant or just list them? 
-    # Listing them simply for mobile clarity
+    # List items with quantity
     for i, item in enumerate(st.session_state.cart):
         with st.container():
             col1, col2 = st.columns([4, 1])
             with col1:
-                st.write(f"**{item['name']}**")
-                st.caption(f"{item['restaurant']} • RM {item['price']:.2f}")
+                st.write(f"**{item['quantity']}x {item['name']}**")
+                subtotal = item['price'] * item['quantity']
+                st.caption(f"{item['restaurant']} • RM {subtotal:.2f}")
             with col2:
                 if st.button("✖", key=f"remove_{i}"):
                     st.session_state.cart.pop(i)
@@ -205,16 +223,11 @@ def render_confirmation():
     st.subheader("Confirm Order")
     st.write("Please review your order details.")
     
-    # Order Summary
-    df = pd.DataFrame(st.session_state.cart)
-    # Simple count of items
-    item_counts = df['name'].value_counts()
-    
     with st.container():
         st.markdown("#### Order Summary")
-        for name, count in item_counts.items():
-            price = df[df['name'] == name].iloc[0]['price']
-            st.write(f"{count}x {name} (RM {price * count:.2f})")
+        for item in st.session_state.cart:
+            item_total = item['price'] * item['quantity']
+            st.write(f"{item['quantity']}x {item['name']} (RM {item_total:.2f})")
         
         st.divider()
         st.markdown(f"**Grand Total: RM {get_cart_total():.2f}**")
@@ -259,7 +272,7 @@ def render_orders():
         with st.expander(f"{order['date']} - RM {order['total']:.2f} ({order['status']})"):
             st.write(f"**Order ID:** {order['id']}")
             for item in order['items']:
-                st.write(f"- {item['name']}")
+                st.write(f"- {item['quantity']}x {item['name']}")
             st.caption("Cash on Delivery")
 
 # --- MAIN APP CONTROLLER ---
@@ -278,7 +291,8 @@ else:
             st.session_state.page = "Menu"
             st.rerun()
     with nav_col2:
-        cart_count = len(st.session_state.cart)
+        # Calculate total items count (sum of quantities)
+        cart_count = sum(item['quantity'] for item in st.session_state.cart)
         label = f"🛒\nCart ({cart_count})"
         if st.button(label):
             st.session_state.page = "Cart"
