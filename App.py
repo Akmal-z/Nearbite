@@ -71,8 +71,9 @@ RESTAURANTS = [
         "name": "Dapur Sihat",
         "category": "Fusion",
         "menu": [
-            {"id": "m1", "name": "Nasi Kerabu Quinoa", "price": 15.50, "cals": 310},
-            {"id": "m2", "name": "Zoodle Laksa", "price": 12.00, "cals": 240},
+            {"id": "m1", "name": "Nasi Kerabu Quinoa", "price": 15.50, "cals": 310, "is_healthy": True},
+            {"id": "m2", "name": "Zoodle Laksa", "price": 12.00, "cals": 240, "is_healthy": True},
+            {"id": "m3", "name": "Crispy Tempeh Fries", "price": 8.00, "cals": 450, "is_healthy": False},
         ]
     },
     {
@@ -80,8 +81,9 @@ RESTAURANTS = [
         "name": "Kelantan Fusion",
         "category": "Local",
         "menu": [
-            {"id": "m3", "name": "Avocado Budu Salad", "price": 14.00, "cals": 220},
-            {"id": "m4", "name": "Grilled Fish Pesto", "price": 18.00, "cals": 400},
+            {"id": "m4", "name": "Avocado Budu Salad", "price": 14.00, "cals": 220, "is_healthy": True},
+            {"id": "m5", "name": "Grilled Fish Pesto", "price": 18.00, "cals": 400, "is_healthy": True},
+            {"id": "m6", "name": "Sweet Santan Durian", "price": 12.50, "cals": 550, "is_healthy": False},
         ]
     }
 ]
@@ -168,17 +170,38 @@ def render_menu():
     st.caption("What are you craving today?")
     
     # Filter
-    category = st.selectbox("Filter Cuisine", ["All", "Fusion", "Local"])
+    filter_option = st.selectbox("Filter Menu", ["All", "Healthy Choices 🌿", "Fusion", "Local"])
+    
+    results_found = False
     
     for res in RESTAURANTS:
-        if category == "All" or res['category'] == category:
+        # Check restaurant category logic
+        # If we filter by 'Healthy Choices', we check items inside, not the restaurant category
+        # If we filter by 'Fusion' or 'Local', we check the restaurant category
+        
+        visible_items = []
+        for item in res['menu']:
+            if filter_option == "Healthy Choices 🌿":
+                if item.get('is_healthy', False):
+                    visible_items.append(item)
+            elif filter_option in ["Fusion", "Local"]:
+                if res['category'] == filter_option:
+                    visible_items.append(item)
+            else:
+                # Show All
+                visible_items.append(item)
+        
+        if visible_items:
+            results_found = True
             st.markdown(f"### {res['name']}")
-            for item in res['menu']:
+            for item in visible_items:
                 with st.container():
                     # Layout: 2 parts description, 1 part quantity input, 1 part add button
                     col1, col2, col3 = st.columns([3, 1.2, 1.2])
                     with col1:
-                        st.markdown(f"**{item['name']}**")
+                        # Add Leaf icon if healthy
+                        name_display = f"{item['name']} 🌿" if item.get('is_healthy') else item['name']
+                        st.markdown(f"**{name_display}**")
                         st.caption(f"RM {item['price']:.2f} • {item['cals']} kcal")
                     with col2:
                         qty = st.number_input("Qty", min_value=1, value=1, label_visibility="collapsed", key=f"qty_{item['id']}")
@@ -186,6 +209,9 @@ def render_menu():
                         if st.button("Add", key=f"add_{item['id']}"):
                             add_to_cart(item, res['name'], qty)
             st.divider()
+            
+    if not results_found:
+        st.info("No items found for this category.")
 
 def render_cart():
     st.subheader("Your Basket 🛒")
@@ -202,7 +228,8 @@ def render_cart():
         with st.container():
             col1, col2 = st.columns([4, 1])
             with col1:
-                st.write(f"**{item['quantity']}x {item['name']}**")
+                name_display = f"{item['name']} 🌿" if item.get('is_healthy') else item['name']
+                st.write(f"**{item['quantity']}x {name_display}**")
                 subtotal = item['price'] * item['quantity']
                 st.caption(f"{item['restaurant']} • RM {subtotal:.2f}")
             with col2:
