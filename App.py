@@ -68,22 +68,56 @@ st.markdown("""
 RESTAURANTS = [
     {
         "id": "r1",
-        "name": "Dapur Sihat",
-        "category": "Fusion",
+        "name": "Healthy Village Kitchen",
+        "category": "Local",
         "menu": [
-            {"id": "m1", "name": "Nasi Kerabu Quinoa", "price": 15.50, "cals": 310, "is_healthy": True},
-            {"id": "m2", "name": "Zoodle Laksa", "price": 12.00, "cals": 240, "is_healthy": True},
-            {"id": "m3", "name": "Crispy Tempeh Fries", "price": 8.00, "cals": 450, "is_healthy": False},
+            {
+                "id": "m1", 
+                "name": "Village Brown Rice Plate", 
+                "description": "Brown rice served with lightly seasoned local vegetables and a choice of chicken or fish.",
+                "price": 12.50, 
+                "cals": 420, 
+                "is_healthy": True
+            },
+            {
+                "id": "m2", 
+                "name": "Steamed Ginger Fish", 
+                "description": "Fresh fish steamed with ginger, offering a light and protein-rich meal.",
+                "price": 18.00, 
+                "cals": 310, 
+                "is_healthy": True
+            },
+            {
+                "id": "m3", 
+                "name": "Healthy Chicken Soup Rice Set", 
+                "description": "Clear chicken soup paired with rice, cooked with minimal oil and salt.",
+                "price": 10.50, 
+                "cals": 350, 
+                "is_healthy": True
+            },
         ]
     },
     {
         "id": "r2",
-        "name": "Kelantan Fusion",
-        "category": "Local",
+        "name": "Greens & Grills",
+        "category": "Fusion",
         "menu": [
-            {"id": "m4", "name": "Avocado Budu Salad", "price": 14.00, "cals": 220, "is_healthy": True},
-            {"id": "m5", "name": "Grilled Fish Pesto", "price": 18.00, "cals": 400, "is_healthy": True},
-            {"id": "m6", "name": "Sweet Santan Durian", "price": 12.50, "cals": 550, "is_healthy": False},
+            {
+                "id": "m4", 
+                "name": "Grilled Village Chicken Plate", 
+                "description": "Tender grilled chicken served with vegetables for a balanced and nutritious dish.",
+                "price": 15.00, 
+                "cals": 400, 
+                "is_healthy": True
+            },
+            {
+                "id": "m5", 
+                "name": "Garden Vegetable Soup", 
+                "description": "A light soup made from fresh local vegetables, suitable for all age groups.",
+                "price": 7.50, 
+                "cals": 120, 
+                "is_healthy": True
+            },
         ]
     }
 ]
@@ -176,9 +210,6 @@ def render_menu():
     
     for res in RESTAURANTS:
         # Check restaurant category logic
-        # If we filter by 'Healthy Choices', we check items inside, not the restaurant category
-        # If we filter by 'Fusion' or 'Local', we check the restaurant category
-        
         visible_items = []
         for item in res['menu']:
             if filter_option == "Healthy Choices 🌿":
@@ -202,6 +233,8 @@ def render_menu():
                         # Add Leaf icon if healthy
                         name_display = f"{item['name']} 🌿" if item.get('is_healthy') else item['name']
                         st.markdown(f"**{name_display}**")
+                        # Show description in grey
+                        st.caption(f"{item.get('description', '')}")
                         st.caption(f"RM {item['price']:.2f} • {item['cals']} kcal")
                     with col2:
                         qty = st.number_input("Qty", min_value=1, value=1, label_visibility="collapsed", key=f"qty_{item['id']}")
